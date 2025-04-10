@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buscador de Direcciones</title>
+  <!-- Cargar PlaceKit Autocomplete -->
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@placekit/autocomplete-js@latest/dist/placekit-autocomplete.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@placekit/autocomplete-js@latest"></script>
+  <!-- Fuente estilo Airbnb -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+
+    /* Reset básico */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      background-color: #fafafa;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    /* Estilo de la calculadora */
+    .h1Calc {
+      color: #ff5a5f;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .red {
+      color: #ff5a5f;
+      font-weight: 600;
+    }
+
+    .formCalc {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .labelCalc {
+      font-weight: 600;
+      display: block;
+      margin: 10px 0 5px;
+    }
+
+    .inputCalc {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      outline: none;
+    }
+
+    .inputCalc:focus {
+      border-color: #ff5a5f;
+    }
+
+    .buttonCalc {
+      width: 100%;
+      background-color: #ff5a5f;
+      color: white;
+      border: none;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.3s ease;
+    }
+
+    .buttonCalc:hover {
+      background-color: #e0464e;
+    }
+
+    .resultCalc {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #333;
+      text-align: center;
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+    }
+
+    #result {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    /* Animación para los números */
+    .animated-number {
+      display: inline-block;
+      font-weight: bold;
+      font-size: 44px;
+      color: #333;
+    }
+
+    /* Evitar que el simbolo € se mueva */
+    .euro-symbol {
+      position: relative;
+      top: 0;
+      left: 0;
+      font-size: 1.4em;
+    }
+
+    .room-button {
+      padding: 10px 15px;
+      border: 1px solid #ccc;
+      background-color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .room-button:hover {
+      background-color: #f0f0f0;
+    }
+
+    .room-button.selected {
+      background-color: #FF5A5F;
+      color: white;
+      border-color: #FF5A5F;
+    }
+
+    /* Fondo del pop-up */
+    #info-popup {
+      display: none;
+      /* Inicialmente oculto */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      /* Fondo oscuro */
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      /* Asegura que esté sobre el contenido */
+    }
+
+    /* Contenedor del pop-up (fondo blanco) */
+    .popup-content {
+      position: relative;
+      background-color: white;
+      padding: 20px;
+      width: 500px;
+      max-width: 90%;
+      /* Max ancho para móviles */
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      overflow-y: auto;
+      /* Para evitar desbordamiento de contenido */
+    }
+
+    /* Botón de cierre (la X) */
+    #popup-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 24px;
+      color: #333;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+
+    /* Cambiar color de la X cuando el cursor pasa por encima */
+    #popup-close:hover {
+      color: #e74c3c;
+    }
+
+    ul {
+      text-align: left;
+      padding-left: 20px;
+    }
+
+    /* Asegurar que los enlaces dentro del pop-up sean visibles y fáciles de usar */
+    a {
+      text-decoration: underline;
+      color: #2a2b2c;
+    }
+
+    a:hover {
+      color: #e74c3c;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1 class="h1Calc">Buscador de Direcciones</h1>
+
+  <form id="priceEstimator" class="formCalc">
+    <!-- Direccion -->
+    <label for="address" class="labelCalc">Introduce tu dirección:</label>
+    <input type="text" id="address" name="address" class="inputCalc" placeholder="Escribe la dirección..." />
+    <!-- Numero de Habitaciones -->
+    <label for="rooms" class="labelCalc">Número de habitaciones:</label>
+    <input type="hidden" id="rooms" name="rooms" required />
+    <div id="room-options" style="display: flex; gap: 10px;">
+      <button type="button" class="room-button" data-value="1">Una Habitación </button>
+      <button type="button" class="room-button" data-value="2">Dos Habitaciones</button>
+      <button type="button" class="room-button" data-value="3">Tres o Más Habitaciones</button>
+    </div>
+    <!-- Submit -->
+    <button type="submit" class="buttonCalc">Estimar Precio</button>
+  </form>
+
+  <!-- Resultado -->
+  <div id="result"></div>
+
+  <!-- Mensaje del calculo -->
+  <div id="mensajeFinal"></div>
+
+  <!-- Contenedor del pop-up -->
+  <div id="info-popup">
+    <div class="popup-content">
+      <span id="popup-close" class="popup-close">&times;</span>
+      <h2>Cálculo de Ingresos Potenciales</h2>
+      <p>
+        Para calcular el precio estimado de tu alojamiento, hemos analizado el mercado de alquiler vacacional
+        en base a la zona donde se ubica la dirección seleccionada.
+      </p>
+      <p>En base a los datos de reservas de los últimos 12 meses:</p>
+      <ul>
+        <li>El 25% del precio base se añade a las viviendas con <strong>dos habitaciones</strong> según el mercado
+          local.</li>
+        <li>El 40% del precio base se añade a las viviendas con <strong>tres o más habitaciones</strong> según el
+          mercado local.</li>
+      </ul>
+      <p>
+        <strong> Estos valores son estimaciones basadas en datos disponibles y pueden variar según la temporada, la
+          demanda y las características específicas de cada propiedad.</strong>
+        Se han analizado tendencias de precios, características de las viviendas y otros factores relevantes para
+        ofrecer estimaciones basadas en información accesible,
+        respetando la legalidad vigente y sin infringir los términos de uso de ninguna plataforma específica.
+      </p>
+      <p>
+        Ten en cuenta que los ingresos reales dependerán de varios factores, como la demanda local, la disponibilidad de
+        tu alojamiento, los precios y la legislación vigente. Este cálculo no constituye una tasación del valor de la
+        propiedad.
+      </p>
+    </div>
+  </div>
+
+
+
+
+  <script>
+
+    let ciudad = "";// Iniciado en blanco para evitar errores
+
+    // Evento para elegir el número de habitaciones
+    document.querySelectorAll('.room-button').forEach(button => {
+      button.addEventListener('click', function () {
+        // Obtener el valor del botón presionado
+        const selectedValue = this.getAttribute('data-value');
+        // Asignar el valor al input oculto
+        document.getElementById('rooms').value = selectedValue;
+        // Quitar la clase "selected" de todos los botones y aplicarla solo al botón presionado
+        document.querySelectorAll('.room-button').forEach(btn => btn.classList.remove('selected'));
+        this.classList.add('selected');
+      });
+    });
+
+    // Función para animar los números
+    function animateNumber(element, startValue, endValue, duration) {
+      let startTime = null;
+      const step = (timestamp) => {
+        if (!startTime) startTime = timestamp;
+        const progress = timestamp - startTime;
+        const value = Math.min(startValue + (endValue - startValue) * (progress / duration), endValue);
+        element.innerText = value.toFixed(0); // Redondear al número más cercano
+        if (progress < duration) {
+          requestAnimationFrame(step);
+        }
+      };
+      requestAnimationFrame(step);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+
+      const addressInput = document.getElementById("address"); // Input de dirección
+      let addressSelected = false; // Boolean que indica si la dirección proviene del autocompletado
+
+      // Reemplaza `'aqui-va-mi-clave-API-key='` por tu clave API de PlaceKit:
+      const pka = placekitAutocomplete('aqui-va-mi-clave-API-key=TU_CLAVE_API', {
+        target: '#address',
+        language: 'es',
+        countries: ['es'],
+      });
+
+      // Maneja la selección de una dirección
+      pka.on('pick', (value, item, index) => {
+        console.log('Objeto completo de PlaceKit:', item);
+
+        if (item) {
+          addressSelected = true; // Boolean a true si se ha seleccionado una dirección válida
+          const { name, city, county, administrative, country } = item;
+          let direccionCompleta = [name, city, county, administrative, country]
+            .filter(Boolean)
+            .join(', ');
+          addressInput.value = direccionCompleta;
+
+          // Convertir administrative a minúsculas
+          let nameComunity = administrative ? administrative.toLowerCase() : '';
+
+          // Depuración
+          console.log("Comunidad:", nameComunity);
+
+          /**
+           * Inicio de la comparación de comunidades autónomas y ciudades de España:
+           * 
+           * Se comparan las comunidades autónomas y se asigna un valor a la variable ciudad.
+           * La comparación puede realizarse de dos formas:
+           * 
+           *  1. **Mediante una llamada a una API externa**: Se puede utilizar una API para obtener datos en tiempo real sobre las comunidades autónomas y ciudades.
+           * 
+           *  2. **Mediante un diccionario local de ciudades**: Alternativamente, puedes usar un diccionario predefinido de ciudades junto con sus respectivos valores, 
+           *       para realizar la comparación sin necesidad de una llamada externa. Los valores asignados a cada ciudad se pueden ajustar según las necesidades del proyecto.
+           * 
+           * Ambos métodos son válidos, y puedes elegir el que mejor se adapte a tus necesidades o las de tu proyecto.
+           * 
+           */
+
+          // Comparar con las variantes de Cataluña
+          if (['catalunya', 'catalonia', 'cataluña'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            // Mapa de ciudades de Cataluña
+            const ciudadesCatalunya = {
+              'barcelona': 174, 'hospitalet de llobregat': 119, 'l\'hospitalet de llobregat': 119, 'l\'hospitalet': 119, 'badalona': 122, 'sabadell': 114,
+              'tarrasa': 93, 'terrassa': 93, 'lérida': 76, 'lleida': 76, 'tarragona': 74, 'mataró': 78, 'mataro': 78, 'santa coloma de gramenet': 113,
+              'reus': 79, 'girona': 95, 'gerona': 95, 'manresa': 105, 'vilanova i la geltrú': 130, 'vilanova i la geltru': 130,
+              'villanueva y geltrú': 130, 'villanueva y geltru': 130, 'vic': 95, 'vich': 95, 'igualada': 85, 'figueres': 98, 'figueras': 98, 'blanes': 89,
+              'el prat de llobregat': 134, 'el prat': 134, 'castelldefels': 130, 'sitges': 129, 'salou': 76, 'vilafranca del penedès': 110, 'vilafranca del penedes': 110,
+            };
+
+            // Asignar el valor correspondiente o un valor por defecto
+            ciudad = ciudadesCatalunya[nameCity] || 128; // Valor por defecto || Valor para resto de zonas de Cataluña
+
+          }
+
+          // Comparar con las variantes de Andalucia
+          else if (['antalucia', 'andalusia', 'andalucía'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            // Mapa de ciudades de Andalucía
+            const ciudadesAndalucia = {
+              'almería': 67, 'almeria': 67, 'roquetas de mar': 59, 'roquetas': 59, 'el ejido': 83, 'ejido': 83, 'níjar': 67, 'nijar': 67, 'cádiz': 83, 'cadiz': 83,
+              'jerez de la frontera': 66, 'jerez': 66, 'algeciras': 64, 'san fernando': 95, 'chiclana de la frontera': 87, 'chiclana': 87, 'el puerto de santa maría': 87,
+              'el puerto': 87, 'puerto de santa maría': 87, 'cordoba': 77, 'córdoba': 77, 'lucena': 75, 'puente genil': 80, 'genil': 80, 'montilla': 70, 'granada': 77,
+              'motril': 75, 'almuñécar': 65, 'almunecar': 65, 'almuñecar': 65, 'almunécar': 65, 'baza': 89, 'huelva': 72, 'lepe': 80, 'moguer': 73, 'isla cristina': 73,
+              'cristina': 73, 'jaén': 60, 'jaen': 60, 'linares': 69, 'úbeda': 53, 'ubeda': 53, 'baeza': 60, 'málaga': 98, 'malaga': 98, 'marbella': 120, 'fuengirola': 79,
+              'antequera': 76, 'velez-málaga': 60, 'velez-malaga': 60, 'torremolinos': 60, 'la axarquía': 82, 'la axarquia': 82, 'axarquía': 82, 'axarquia': 82,
+              'sevilla': 100, 'dos hermanas': 70, 'alcalá de guadaíra': 69, 'alcala de guadaira': 69, 'écija': 62, 'ecija': 62, 'utrera': 75,
+              'sanlúcar de barrameda': 86, 'sanlucar de barrameda': 86, 'sanlúcar': 86, 'sanlucar': 86
+            };
+
+            // Asignar el valor correspondiente o un valor por defecto
+            ciudad = ciudadesAndalucia[nameCity] || 82; // Valor por defecto || Valor para resto de zonas de Andalucía
+          }
+
+          // Comparar con las variantes de Aragón
+          else if (['aragón', 'aragon'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            // Mapa de ciudades
+            const ciudadesAragon = {
+              'zaragoza': 75, 'zaragoza capital': 75, 'ejea de los caballeros': 87, 'ejea': 87, 'ejea de los caballeros': 87, 'utebo': 70, 'calatayud': 75,
+              'tarazona': 80, 'caspe': 80, 'la almunia de doña godina': 72, 'la almunia de dona godina': 72, 'la almunia': 72, 'almunia': 72, 'maria de huerva': 81,
+              'maría de huerva': 81, 'cuarte de huerva': 81, 'zuera': 88, 'huesca': 75, 'huesca capital': 75, 'jaca': 82, 'monzon': 79, 'monzón': 79, 'fraga': 74,
+              'barbastro': 75, 'sabiñanigo': 77, 'sabiñánigo': 77, 'graus': 97, 'ayerbe': 92, 'binefar': 88, 'binéfar': 88, 'almudevar': 75, 'almudévar': 75,
+              'teruel': 83, 'teruel capital': 83, 'alcañiz': 82, 'alcaniz': 82, 'andorra': 110, 'calamocha': 55, 'cella': 102, 'mora de rubielos': 95,
+              'rubielos de mora': 95, 'orihuela del tremedal': 62, 'utrillas': 55, 'la puebla de hijar': 55, 'puebla de hijar': 53, 'muniesa': 52,
+              'albalate del arzobispo': 52, 'torralba de los frailes': 52, 'bajo aragon': 75, 'bajo aragón': 75, 'matarraña': 76, 'matarranya': 76,
+              'mequinenza': 63, 'fuentes de ebro': 80, 'valderrobres': 87, 'rubielos de mora': 87
+            };
+
+            // Asignar el valor correspondiente o un valor por defecto
+            ciudad = ciudadesAragon[nameCity] || 78; // Valor por defecto || Valor ara resto de zonas de Aragón
+          }
+
+
+          // Comparar con las variantes de Canarias
+          else if (["canarias", "islas canarias", "illes canaries", "illes canáries"].includes(nameComunity)) {
+            const nameCity = city ? city.toLowerCase() : "";
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            // Diccionario de ciudades con sus respectivos valores
+            const ciudadesCanarias = {
+              "las palmas de gran canaria": 70, "las palmas": 70, "palmas de gran canaria": 70, "palmas": 70,
+              "gran canaria": 70, "santa cruz de tenerife": 65, "santa cruz": 65, "la laguna": 60, "laguna": 60, "telde": 55, "arucas": 50,
+              "gáldar": 50, "galdar": 50, "san cristóbal de la laguna": 60, "san cristobal de la laguna": 60, "aguimes": 45, "vecindario": 45,
+              "puerto del rosario": 55, "el rosario": 50, "rosario": 50, "la orotava": 55, "orotava": 55, "el puerto de la cruz": 60,
+              "puerto de la cruz": 60, "los realejos": 50, "los cristianos": 65, "adeje": 70, "arona": 65, "santa lucía de tirajana": 50,
+              "santa lucia de tirajana": 50, "san bartolomé de tirajana": 70, "san bartolome de tirajana": 70, "la palma": 55,
+              "los llanos de aridane": 50, "breña alta": 45, "fuencaliente de la palma": 45, "tazacorte": 50, "el hierro": 40, "valverde": 40,
+              "la gomera": 45, "san sebastián de la gomera": 45, "san sebastian de la gomera": 45, "puntallana": 40, "santa cruz de la palma": 50,
+              "santa cruz palma": 50, "el paso": 45, "la graciosa": 60, "arrecife": 55, "tinajo": 50, "yaiza": 55, "san bartolomé": 50, "san bartolome": 50,
+              "haría": 50, "haria": 50, "lanzarote": 55, "la matanza de acentejo": 45, "el sauzal": 45, "guía de isora": 50, "la victoria de acentejo": 45,
+              "san juan de la rambla": 45, "candelaria": 50, "santa úrsula": 50, "santa ursula": 50, "icod de los vinos": 53, "guía": 45, "guia": 45,
+              "valle gran rey": 55
+            };
+
+            // Asignar el valor correspondiente o un valor por defecto
+            ciudad = ciudadesCanarias[nameCity] || 57; // Valor por defecto || Valor ara resto de zonas de Canarias
+          }
+
+          // Comparar con las variantes de Asturias
+          else if (["asturias", "principado de asturias", "asturies", "asturias/asturies"].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : "";
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            // Mapeo de ciudades de Asturias
+            const ciudadesAsturias = {
+              "oviedo": 60, "uvieu": 60, "gijón": 65, "gijon": 65, "xixón": 65, "xixon": 65, "gijón/xixón": 65, "avilés": 55, "aviles": 55,
+              "langreo": 50, "llangréu": 50, "llangreu": 50, "mieres": 50, "cangas de onís": 70, "cangas de onis": 70, "cangues d'onís": 70,
+              "pola de siero": 50, "la felguera": 50, "felguera": 50, "el musel": 55, "musel": 55, "luanco": 50, "lluanco": 50, "villaviciosa": 55,
+              "ribadesella": 60, "ribesella": 60, "ribeseya": 60, "ribadeseya": 60, "castropol": 50, "castropol de asturias": 50,
+              "lugo de llanera": 45, "llanera": 45, "la caridad": 50, "cudillero": 55, "cudieiru": 55, "granda": 45, "cangas del narcea": 55, "cangues d'narcea": 55,
+              "arriondas": 50, "arriondes": 50, "pola de lena": 45, "pola de llena": 45, "pola de sobrescobio": 45, "pola de sobrescobiu": 45, "pravia": 50, "quintes": 45,
+              "siero": 50, "sieru": 50, "llanes": 60, "tineo": 50, "tineu": 50, "pola de laviana": 45, "pola de llaviana": 45, "sama de langreo": 50,
+              "sama de llangreu": 50, "sama": 50, "ciañu": 50, "el entrego": 50, "entrego": 50, "l'entregu": 50, "llagos": 50, "san martín del rey aurelio": 50,
+              "yernes": 45, "lena": 45, "llena": 45, "ribera de pravia": 50, "pola de la cueca": 45, "sotrondio": 45, "la pola": 45, "viella": 45, "niembro": 50,
+              "casa de les llames": 45, "el valle": 45, "villanueva": 45, "salas": 45, "val de san martín": 45, "val de san martin": 45, "roces": 50,
+              "la carreña": 45, "carreña": 45, "nava": 45, "colunga": 50, "la andrea": 45, "bustio": 45, "tanatoro": 45, "san pelayo de la cuadra": 45,
+              "puerto de vega": 45, "belmonte de miranda": 45, "belmonte": 45, "somió": 50, "somiu": 50, "somio": 50, "el cubero": 45, "cubero": 45,
+              "cabranes": 65, "riberas": 45
+            };
+
+            // Asignar el valor correspondiente o un valor por defecto
+            ciudad = ciudadesAsturias[nameCity] || 47; // Valor por defecto || Valor para resto de zonas de Asturias
+          }
+
+          // Comparar con las variantes de Islas Baleares
+          else if (['islas baleares', 'illes balears', 'baleares', 'balears', 'comunitat autònoma de les illes balears'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const ciudadesIslasBaleares = {
+              'palma': 95, 'palma de mallorca': 95, 'mallorca': 95, 'maó': 85, 'mao': 85, 'ibiza': 120, 'eivissa': 120, 'alcudia': 80,
+              'sóller': 120, 'soller': 120, 'manacor': 90, 'marratxí': 175, 'marratxi': 175, 'calviá': 123, 'calvia': 123, 'felanitx': 142,
+              'felanich': 142, 'inca': 111, 'binissalem': 113, 'binisalem': 113, 'llucmajor': 90, 'lluchmajor': 90, 'lluchmayor': 90,
+              'ciutadella': 66, 'ciudadela': 66, 'sa pobla': 140, 'santa margarita': 86, 'andratx': 160, 'andraitx': 160, 'andrach': 160,
+              'es mercadal': 118, 'mercadal': 118, 'santa eulàlia des riu': 150, 'santa eulalia des riu': 150, 'santa eulalia del rio': 150,
+              'santa eulalia': 150, 'española': 100, 'pollença': 113, 'pollenca': 113, 'pollensa': 113, 'capdepera': 120, 'es canar': 110,
+              'santa maria del camí': 175, 'llubí': 152, 'sineu': 117, 'ses salines': 120, 'las salinas': 120, 'binicanella': 78, 'marina de palma': 152,
+              "caló d'en real": 170, "cala d'or": 150, 'cala millor': 90, 'cala ratjada': 85, 'cala rajada': 85, 'portocolom': 78, 'porto colom': 78, 'petra': 85,
+              'artà': 92, 'bunyola': 250, 'buñola': 250, 'muro': 75, 'algaida': 152, 'llançà': 112, 'cala en bosch': 76, "cala'n bosch": 76, 'san antonio': 106,
+              'port de sant miquel': 140, 'port de san miguel': 140, 'puerto de san miguel': 140, 'sa coma': 91, "port d'es canar": 114, 'calvia': 123,
+              'binifadet': 120, 'son servera': 79, 'port de sóller': 135, 'port de soller': 135, 'es jondal': 58, 'porroig': 57, 'alqueria blanca': 57,
+              "l'alqueria blanca": 57
+            };
+
+            // Asignar el valor correspondiente o un valor por defecto
+            ciudad = ciudadesIslasBaleares[nameCity] || 112; // Valor por defecto || Valor ara resto de zonas de Islas Baleares
+          }
+
+          // Comparar con las variantes de Cantabria
+          else if (['cantabria'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            // Mapa de ciudades y sus valores asociados
+            const ciudadesCantabria = {
+              'santander': 69, 'torrelavega': 56, 'camargo': 50, 'reinosa': 65, 'colindres': 79, 'laredo': 69, 'cabezón de la sal': 71, 'cabezon de la sal': 71,
+              'astorga': 54, 'maliaño': 50, 'riocerezo': 49, 'suances': 53, 'val de san vicente': 76, 'noja': 23, 'santoña': 75, 'castro urdiales': 85, 'castro-urdiales': 85,
+              'ontón': 98, 'onton': 98, 'puente san miguel': 63, 'muriedas': 70, 'pedreña': 50, 'saro': 100, 'hermosa': 99, 'somo': 67, 'escobedo': 76, 'valle de villaverde': 94,
+              'piélagos': 73, 'pielagos': 73, 'villacarriedo': 71, 'selaya': 91, 'alceda': 98, 'molledo': 43, 'camaleño': 81, 'ruente': 88, 'liérganes': 110, 'lierganes': 110,
+              'puente viesgo': 70, 'santillana del mar': 75, 'miera': 100, 'escalante': 85, 'san vicente de la barquera': 81, 'val de san vicente': 73, 'voto': 88, 'bareyo': 75,
+              'el astillero': 60, 'astillero': 60, 'santiurde de toranzo': 83, 'solórzano': 85, 'solorzano': 85, 'ruente': 78, 'castañeda': 82, 'piélagos': 81, 'pielagos': 81,
+              'valles': 73, 'valles pasiegos': 73, 'cabárceno': 50, 'cabarceno': 50
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesCantabria[nameCity] || 65; // Valor por defecto || Valor para resto de zonas de Cantabria
+          }
+
+          // Comparar con las variantes de La Rioja
+          else if (['la rioja', 'rioja'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            // Mapa de ciudades y sus valores asociados para La Rioja
+            const ciudadesLaRioja = {
+              'logroño': 60, 'alfaro': 50, 'arnedo': 55, 'calahorra': 52, 'cervera del río alhama': 48, 'cervera del rio alhama': 65, 'santo domingo de la calzada': 70,
+              'haro': 70, 'nájera': 58, 'najera': 58, 'agoncillo': 47, 'ahedo de las aguas': 45, 'bergasa': 46, 'bezana': 49, 'ciriñuela': 55, 'cirinuela': 55,
+              'elciego': 68, 'fuenmayor': 62, 'baños de río tobía': 53, 'cordovín': 50, 'daroca de la rana': 55, 'cirueña': 59, 'villamediana de iruña': 60,
+              'vina': 60, 'villamediana': 60, 'villamediana de iruna': 60, 'torrecilla en Cameros': 60, 'valverde': 52, 'san asensio': 58,
+              'castroviejo': 56, 'herbosa': 49, 'autol': 51, 'cuzcurrita de río tirón': 63, 'cuzcurrita de rio tiron': 63, 'soto en cameros': 55, 'rivas de tereso': 50,
+              'villanueva de los hera': 53, 'berceo': 57, 'cieza': 48, 'bercedo': 57, 'navajún': 47, 'navajun': 47, 'ciénaga': 49, 'cienaga': 49, 'la cienaga': 49,
+              'la ciénaga': 49, 'lanza': 45
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesLaRioja[nameCity] || 48; // Valor por defecto || Valor para resto de zonas de La Rioja
+          }
+
+          // Comparar con las variantes de Pais Vasco
+          else if (['pais vasco', 'país vasco', 'euskadi', 'comunidad autonoma vasca', 'comunidad autónoma vasca', 'euskal herria', 'euskalki'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            // Mapa de ciudades y sus valores asociados para País Vasco
+            const ciudadesPaisVasco = {
+              'vitoria-gasteiz': 80, 'bilbao': 95, 'bilbo': 95, 'donostia': 120, 'san sebastián': 120, 'san sebastian': 120, 'vitoria': 85, 'gasteiz': 85, 'vitoria-gasteiz': 85,
+              'vitoria gasteiz': 85, 'irún': 89, 'irun': 89, 'getxo': 85, 'barakaldo': 76, 'portugalete': 78, 'leioa': 76, 'bermeo': 82, 'errenteria': 68, 'ondarroa': 82,
+              'tolosa': 72, 'eibar': 70, 'durango': 75, 'zarautz': 80, 'hernani': 75, 'lasarte-oria': 70, 'lasarte oria': 70, 'lasarte': 70, 'oria': 70, 'hondarribia': 85,
+              'elgoibar': 70, 'azpeitia': 70, 'azkoitia': 70, 'sestao': 70, 'santurce': 70, 'amorebieta-etxano': 70, 'zornotza': 70, 'arrigorriaga': 70, 'mundaka': 70,
+              'orozko': 70, 'gernika-lumo': 70, 'gernika': 70, 'lumo': 70, 'beasain': 67, 'elizondo': 65, 'astigarraga': 71, 'zumaia': 80, 'mendaro': 66,
+              'trintxerpe': 70, 'lekeitio': 92, 'martutene': 65, 'berriatúa': 75, 'berriatua': 75, 'labraza': 66, 'lizarra': 65, 'romo': 72, 'gallego': 70,
+              'gernika': 82, 'guernica': 82, 'laudio': 70, 'alegría-dulantzi': 70, 'betoño': 68, 'barkaldo': 78, 'barrika': 70, 'bedia': 69, 'bermeo': 82, 'elorrio': 75,
+              'ergobia': 70, 'erri-berri': 70, 'izurza': 50, 'izurtza': 50, 'kastresana': 50, 'castresana': 50, 'kortezubi': 50, 'kotxe': 50, 'kotxezubi': 50,
+              'lezo': 'Valor para Lezo', 'martutene': 'Valor para Martutene', 'orduña': 72, 'orduna': 72, 'orozko': 70, 'orozco': 70, 'ospitaleguía': 70, 'ospitaleguia': 70,
+              'santoña': 75, 'orozko': 'Valor para Orozko', 'salazar': 59, 'zaldibar': 68, 'irura': 67, 'olazagutía': 62, 'olazagutia': 62, 'izpura': 65,
+              'sestao': 62, 'urduliz': 75, 'zaratamo': 70, 'zollo': 65
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesPaisVasco[nameCity] || 60; // Valor por defecto || Valor para resto de zonas del País Vasco
+          }
+
+          // Mapa de ciudades y sus valores asociados para Castilla La Mancha
+          else if (['castilla la mancha', 'castilla-la mancha', 'castilla mancha'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const preciosCasasCastillaLaMancha = {
+              /* Provincia de Albacete */ 'albacete': 60, 'hellín': 55, 'hellin': 55, 'villarrobledo': 50, 'almansa': 52, 'la roda': 48, 'la gineta': 45,
+              /* Provincia de Ciudad Real */ 'ciudad real': 58, 'puertollano': 54, 'alcázar de san juan': 53, 'alcazar de san juan': 53, 'manzanares': 50, 'valdepeñas': 55,
+              'valdepenas': 55, 'miguelturra': 50, 'herencia': 48, 'daimiel': 52, 'campo de criptana': 50, 'almadén': 47, 'almaden': 47, 'tomelloso': 50, 'socuéllamos': 48,
+              /* Provincia de Cuenca*/ 'cuenca': 60, 'tarancón': 52, 'tarancon': 52, 'motilla del palancar': 48, 'san clemente': 47,
+              /* Provincia de Guadalajara*/ 'guadalajara': 65, 'azuqueca de henares': 60, 'molina de áragon': 50, 'molina de aragón': 50, 'molina de aragon': 50,
+              'sigüenza': 55, 'siguenza': 55, 'brihuega': 50, 'el casar': 53, 'atienza': 48, 'calatañazor': 47, 'calatanazor': 47,
+              /* Provincia de Toledo*/ 'toledo': 70, 'talavera de la reina': 58, 'talavera': 58, 'illescas': 55, 'seseña': 54, 'sesena': 54,
+              'consuegra': 52, 'ocaña': 50, 'ocana': 50, 'tembleque': 48, 'carabanchel de toledo': 47, 'priego de la vega': 45
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesCastillaLaMancha[nameCity] || 55; // Valor por defecto || Valor para resto de zonas de Castilla La Mancha
+          }
+
+          // Mapa de ciudades y sus valores asociados para Castilla y León
+          else if (['castilla y león', 'castilla y leon', 'castilla león', 'castilla leon'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const preciosCasasCastillaYLeon = {
+              /* Provincia de Ávila */ 'ávila': 65, 'avila': 65, 'el barraco': 55, 'candeleda': 60, 'arenas de san pedro': 58,
+              /* Provincia de Burgos */ 'burgos': 70, 'miranda de ebro': 62, 'miranda del ebro': 62, 'aranda del duero': 60, 'aranda de duero': 60,
+              /* Provincia de León */ 'león': 68, 'leon': 68, 'ponferrada': 62, 'san andrés del rabanedo': 58, 'san andres del rabanedo': 58, 'la robla': 55,
+              'bembibre': 57, /* Provincia de Palencia */ 'palencia': 65, 'villamuriel de cerrato': 55, 'madrigal de las altas torres': 52, 'san juan de los caballeros': 50,
+              'bocigas': 48, 'guardo': 53, 'la moraña': 50,/* Provincia de Salamanca */ 'salamanca': 75, 'ciudad rodrigo': 60, 'béjar': 58, 'bejar': 58,
+              'peñaranda de bracamonte': 55, 'vitigudino': 52, 'encinas de abajo': 50, /* Provincia de Segovia */ 'segovia': 70, 'cuéllar': 58, 'cuellar': 58, 'el espinar': 60,
+              'espinar': 60, 'san ildefonso': 65, 'cantalejo': 55, 'aguilafuente': 50, /* Provincia de Soria */ 'soria': 68, 'el burgo de osma': 55, 'almazán': 52, 'almazan': 52,
+              'san esteban de gormaz': 50, 'duruelo de la sierra': 50, /* Provincia de Valladolid */ 'valladolid': 72, 'medina del campo': 60, 'alcazar de san juan': 58,
+              'tordesillas': 55, 'vega de valdetronco': 50, /* Provincia de Zamora */ 'zamora': 65, 'benavente': 58, 'fuentes de rio': 50, 'fuentes de río': 50, 'barrio de la loba': 48,
+              /* Castilla y León en general */'castilla y leon': 58
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesCastillaYLeon[nameCity] || 58; // Valor por defecto || Valor para resto de zonas de Castilla y León
+          }
+
+          // Mapa de ciudades y sus valores asociados para Comunidad Valenciana
+          else if (['comunidad valenciana', 'valencia', 'comunitat valenciana'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const preciosCasasComunidadValenciana = {
+              /* Provincia de Alicante */ 'alicante': 70, 'alacant': 70, 'elche': 65, 'elx': 65, 'benidorm': 85, 'torrevieja': 75, 'alcoy': 60, 'alcoi': 60,
+              'villena': 58, 'denia': 80, 'dénia': 80, 'santa pola': 72, 'calpe': 78, 'calp': 78, 'javea': 82, 'xabia': 82, 'jávea': 82, 'san vicente del raspeig': 60,
+              'sant vicent del raspeig': 60, 'novelda': 55, 'crevillente': 54, 'crevillent': 54, 'petrer': 52, 'ibi': 50, 'mutxamel': 57, 'ondara': 56, 'alfaz del pi': 70,
+              "l'alfas del pi": 70, 'lalfas del pi': 70, 'el alfas del pi': 70, 'el campello': 68, /* Provincia de Valencia */ 'valencia': 75, 'valència': 75,
+              'gandía': 72, 'gandia': 72, 'torrent': 65, 'sagunto': 62, 'sagunt': 62, 'paterna': 60, 'alzira': 58, 'mislata': 57, 'ontinyent': 55, 'puçol': 54, 'puzol': 54,
+              'xativa': 56, 'xàtiva': 56, 'albal': 53, 'silla': 52, 'manises': 51, 'cullera': 70, 'carcaixent': 50, 'alberic': 50, 'benetússer': 49, 'aldaia': 48,
+              'paiporta': 48, 'picassent': 47, 'lliria': 46, 'llíria': 46, 'chiva': 45, 'buñol': 45, 'requena': 44, /* Provincia de Castelló */ 'castellón': 70,
+              'castelló': 70, 'vinaroz': 68, 'vinaròs': 68, 'benicarló': 66, 'benicarlo': 66, 'peñíscola': 75, 'peniscola': 75, 'alcocebre': 72, 'alcossebre': 72,
+              'burriana': 60, 'vila-real': 58, 'vilareal': 58, 'onda': 55, 'segorbe': 52, 'oropesa del mar': 80, 'oropesa': 80,
+              'nules': 50, 'moncofa': 50, 'alcora': 48, 'les useres': 47,
+              /* Otros casos generales */ 'comunidad valenciana': 65, 'país valenciano': 65, 'c. valenciana': 65
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesComunidadValenciana[nameCity] || 65; // Valor por defecto || Valor para resto de zonas de la Comunidad Valenciana
+          }
+
+          // Mapa de ciudades y sus valores asociados para Extremadura
+          else if (['extremadura', 'comunidad extremeña', 'comunidad de extremadura'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const ciudadesExtremadura = {
+              /* Provincia de Badajoz */ 'badajoz': 50, 'mérida': 55, 'merida': 55, 'don benito': 48, 'villanueva de la serena': 47, 'almendralejo': 49, 'zafra': 46,
+              'olivenza': 45, 'miajadas': 44, 'jerez de los caballeros': 50, 'monesterio': 43, 'azuaga': 42, 'llerena': 45, 'fregenal de la sierra': 44, 'castuera': 43,
+              'montijo': 46, 'alburquerque': 45, 'guareña': 44, 'talarrubias': 43, 'navalmoral de la mata': 47, 'hornachos': 42, 'los santos de maimona': 44, 'calamonte': 43,
+              /* Provincia de Cáceres */ 'cáceres': 55, 'caceres': 55, 'plasencia': 50, 'trujillo': 48, 'coria': 47, 'moraleja': 45, 'valencia de alcántara': 46,
+              'valencia de alcantara': 46, 'jaraíz de la vera': 48, 'jaraiz de la vera': 48, 'arroyo de la luz': 44, 'malpartida de plasencia': 45, 'torrejón el rubio': 46,
+              'torrejon el rubio': 46, 'casar de cáceres': 44, 'casar de caceres': 44, 'baños de montemayor': 47, 'salorino': 43, 'aliseda': 42, 'santa marta de magasca': 41
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesExtremadura[nameCity] || 42; // Valor por defecto || Valor para resto de zonas de Extremadura
+
+          }
+
+          // Mapa de ciudades y sus valores asociados para Galicia
+          else if (['galicia', 'galega'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const ciudadesGalicia = {
+              /* Provincia de A Coruña */'a coruña': 85, 'coruña': 85, 'santiago de compostela': 100, 'santiago': 100, 'ferrol': 75, 'narón': 75, 'betanzos': 70, 'noia': 70,
+              'la coruña': 85, 'arteixo': 80, 'ordes': 70, 'carballo': 75, 'sada': 85, 'muxía': 75, 'corcubión': 80, 'pontedeume': 75, 'brión': 70, 'brion': 70,
+              'ribeira': 70, 'muxia': 75, 'corcubiOn': 80, /* Provincia de Lugo */
+              'lugo': 75, 'monforte de lemos': 70, 'monforte': 70, 'vilalba': 70, 'ribadeo': 75, 'viveiro': 75, 'burela': 70, 'fonsagrada': 70, 'a fonsagrada': 70,
+              'chantada': 70, 'sarria': 75, 'foz': 75, 'cervo': 70, 'mondoñedo': 75, 'mondonedo': 75, 'meira': 70, 'guitiriz': 70, /* Provincia de Ourense */
+              'ourense': 75, 'orense': 75, 'verín': 70, 'verin': 70, 'o barco de valdeorras': 75, 'o barco': 75, 'xinzo de limia': 70, 'ribadavia': 75, 'celanova': 70,
+              'maside': 70, 'allariz': 70, 'barbadás': 75, 'barbadas': 75, 'maceda': 70, 'baños de molgas': 70, 'castrelo de miño': 75, 'castrelo de mino': 75,
+              'vilamartín de valdeorras': 75, 'vilamartin de valdeorras': 75, /* Provincia de Pontevedra */'pontevedra': 85, 'vigo': 100, 'vilagarcía de arousa': 85,
+              'vilagarcia de arousa': 85, 'marín': 85, 'sanxenxo': 90, 'sanjenjo': 90, 'cangas': 90, 'moaña': 85, 'o grove': 90, 'baiona': 90, 'nigrán': 85, 'tui': 85,
+              'redondela': 85, 'porriño': 80, 'tomiño': 75, 'estrada': 85, 'a estrada': 85, 'silleda': 85, 'caldas de reis': 85, 'lalín': 65, 'bueu': 85, 'covelo': 85, 'cangas': 90,
+              'marín': 81, 'marin': 81, 'nigran': 85, 'porrino': 80, 'tomino': 75, 'lalin': 65, 'cuntis': 85, /* Casos generales */ 'galicia': 72, 'comunidad gallega': 72
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesGalicia[nameCity] || 62; // Valor por defecto || Valor para resto de zonas de Galicia
+
+          }
+
+          // Mapa de ciudades y sus valores asociados para Madrid
+          else if (['comunidad de madrid', 'madrid', 'comunidad de madrid'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const ciudadesMadrid = {
+              'madrid': 90, 'alcobendas': 85, 'alcorcón': 80, 'alcorcon': 80, 'algete': 75, 'arganda del rey': 75, 'aranjuez': 80, 'boadilla del monte': 85, 'collado villalba': 75,
+              'colmenar viejo': 80, 'coslada': 80, 'fuenlabrada': 75, 'getafe': 80, 'leganés': 80, 'leganes': 80, 'las rozas de madrid': 85, 'las rozas': 85, 'majadahonda': 85,
+              'móstoles': 75, 'mostoles': 75, 'parla': 75, 'pinto': 75, 'pozuelo de alarcón': 90, 'pozuelo de alarcon': 90, 'rivas-vaciamadrid': 80, 'rivas vaciamadrid': 80,
+              'san fernando de henares': 75, 'san sebastián de los reyes': 85, 'san sebastian de los reyes': 85, 'torrejón de ardoz': 80, 'torrejon de ardoz': 80, 'valdemoro': 80,
+              'villaviciosa de odón': 85, 'villaviciosa de odon': 85, 'alpedrete': 75, 'batres': 70, 'brunete': 75, 'cabrera': 70, 'la cabrera': 70, 'cenicientos': 70, 'chapinería': 70,
+              'chapineria': 70, 'ciempozuelos': 75, 'colmenarejo': 75, 'el escorial': 80, 'galapagar': 75, 'griñón': 70, 'grinon': 70, 'humanes de madrid': 75, 'manzanares el real': 80,
+              'moralzarzal': 75, 'navalcarnero': 75, 'san lorenzo de el escorial': 80, 'torrelaguna': 70, 'torrelodones': 80, 'valdemorillo': 75, 'villanueva de la cañada': 80,
+              'villanueva de la canada': 80, 'villanueva del pardillo': 80, 'comunidad de madrid': 75, 'madrid comunidad': 75, 'madrid región': 75, 'madrid region': 75
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesMadrid[nameCity] || 72; // Valor por defecto || Valor para resto de zonas de Madrid
+
+          }
+
+          // Mapa de ciudades y sus valores asociados para Murcia
+          else if (['murcia', 'región de murcia', 'region de murcia', 'reino de murcia', 'comunidad murciana'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const ciudadesMurcia = {
+              'murcia': 60, 'cartagena': 70, 'lorca': 65, 'molina de segura': 60, 'alcantarilla': 55, 'cieza': 60,
+              'águilas': 75, 'aguilas': 75, 'yecla': 65, 'jumilla': 65, 'torre-pacheco': 60, 'torre pacheco': 60,
+              'san javier': 70, 'san pedro del pinatar': 70, 'mazarrón': 65, 'mazarron': 65, 'totana': 60, 'alhama de murcia': 60,
+              'caravaca de la cruz': 70, 'cehegín': 65, 'cehegin': 65, 'las torres de cotillas': 55, 'la unión': 60, 'la union': 60,
+              'abanilla': 55, 'aledo': 50, 'alguazas': 55, 'alhama': 60, 'archena': 55, 'beniel': 50, 'blanca': 50, 'bullas': 55,
+              'calasparra': 55, 'campos del río': 50, 'campos del rio': 50, 'fortuna': 55, 'fuente álamo de murcia': 55,
+              'fuente alamo de murcia': 55, 'los alcázares': 70, 'los alcazares': 70, 'moratalla': 60, 'mula': 60,
+              'ojós': 50, 'ojos': 50, 'pliego': 55, 'ricote': 50, 'santomera': 55, 'ulea': 50,
+              'villanueva del río segura': 55, 'villanueva del rio segura': 55, 'región de murcia': 55,
+              'region de murcia': 55, 'murcia region': 55, 'comunidad murciana': 55
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesMurcia[nameCity] || 52; // Valor por defecto || Valor para resto de zonas de Murcia
+
+          }
+          // Mapa de ciudades y sus valores asociados para Navarra
+          else if (['navarra', 'comunidad foral de navarra', 'reino de navarra', 'nafarroa', 'comunidad de navarra'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const ciudadesNavarra = {
+              'pamplona': 85, 'iruña': 85, 'iruna': 85, 'tudela': 70, 'barañáin': 65, 'baranain': 65, 'burlada': 65, 'burlata': 65,
+              'estella': 70, 'estella-lizarra': 70, 'estella lizarra': 70, 'lizarra': 70, 'sangüesa': 60, 'sanguesa': 60,
+              'tafalla': 65, 'alsasua': 60, 'altsasu': 60, 'villava': 65, 'villaba': 65, 'atarrabia': 65, 'zizur mayor': 60,
+              'zizur nagusia': 60, 'ansoáin': 60, 'ansoain': 60, 'antsoain': 60, 'noáin': 60, 'noain': 60,
+              'valle de egüés': 60, 'valle de egues': 60, 'egüés': 60, 'egues': 60, 'aoiz': 50, 'agoitz': 50,
+              'olite': 60, 'erriberri': 50, 'elizondo': 50, 'lesaka': 50, 'peralta': 55, 'azkoien': 55, 'cintruénigo': 55,
+              'cintruenigo': 55, 'corella': 55, 'baztan': 50, 'doneztebe': 50, 'santesteban': 50, 'echarri-aranaz': 50, 'echarri aranaz': 50,
+              'etxarri-aranatz': 50, 'etxarri aranatz': 50, 'lekunberri': 50, 'larraintzar': 50, 'lakuntza': 50, 'urritzola': 50, 'navarra': 55,
+              'comunidad foral de navarra': 55, 'nafarroa': 55, 'nafarroako foru erkidegoa': 55
+            };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesNavarra[nameCity] || 52; // Valor por defecto || Valor para resto de zonas de Murcia
+
+          }
+
+          // Mapa de ciudades y sus valores asociados para Ceuta
+          else if (['ceuta'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const ciudadesCeuta = { 'ceuta': 37, 'ciudad autónoma de ceuta': 37, 'ciudad autonoma de ceuta': 37 };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesCeuta[nameCity] || 37; // Valor por defecto || Valor para resto de zonas de Ceuta
+
+          }
+
+          // Mapa de ciudades y sus valores asociados para Melilla
+          else if (['melilla'].includes(nameComunity)) {
+            let nameCity = city ? city.toLowerCase() : '';
+
+            // Depuración
+            console.log("Ciudad:", nameCity);
+
+            const ciudadesMelilla = { 'melilla': 39, 'ciudad autónoma de melilla': 39, 'ciudad autonoma de melilla': 39, };
+
+            // Asignar el valor correspondiente a la ciudad
+            ciudad = ciudadesMelilla[nameCity] || 39; // Valor por defecto || Valor para resto de zonas de Melilla
+
+          }
+
+          /**
+           * Final de las comunidades autónomas y ciudades de España
+           */
+
+          else {
+            document.getElementById("result").innerText = "Dirección fuera de las comunidades autónomas soportadas.";
+          }
+        } else {
+          addressInput.value = value;
+        }
+      });
+
+      // Resetear la variable si el usuario edita manualmente
+      addressInput.addEventListener("input", () => {
+        addressSelected = false;
+      });
+
+      // Manejo del formulario
+      document.getElementById("priceEstimator").addEventListener("submit", function (event) {
+        event.preventDefault();
+
+        const address = addressInput.value.trim();
+        const rooms = parseInt(document.getElementById("rooms").value);
+
+        if (!addressSelected) { // Verifica si la dirección es válida
+          document.getElementById("result").innerText = "Por favor, selecciona una dirección válida del autocompletado.";
+          return;
+        }
+
+        if (!address) {
+          document.getElementById("result").innerText = "Por favor, selecciona una dirección válida del autocompletado.";
+          return;
+        }
+
+        if (isNaN(rooms) || rooms < 1) {
+          document.getElementById("result").innerText = "Por favor, ingresa un número válido de habitaciones.";
+          return;
+        }
+
+        // Animación de los números
+        const resultContainer = document.getElementById("result");
+        resultContainer.innerHTML = `
+        <h4 class='red'>Dirección</h4>
+          <h3><strong>${address}</strong></h3>
+            <!--<h4 class='red'>Número de habitaciones:</h4>
+              <span class='animated-number' id='rooms-number'></span>-->
+                <h3>Precio estimado por noche:</h3>
+                  <div id="price-container" style="display: flex; align-items: center;">
+                    <h1>
+                      <strong>
+                         <span class='animated-number' id='price-estimate' style="display: inline-block; width: 3ch; text-align: right;">
+                         </span>
+                         <span class='euro-symbol' style="margin-left: 5px;">€</span>
+                      </strong>
+                    </h1>
+                  </div>
+        `;
+
+        // Animar el numero de habitaciones
+        animateNumber(document.getElementById('rooms-number'), 0, rooms, 2000); // 2000ms de duración
+
+        // Mostrar el pop-up cuando se llama la función
+        function showPopup() {
+          document.getElementById("info-popup").style.display = "flex";
+        }
+
+        // Cerrar el pop-up cuando se hace clic en la X
+        document.getElementById("popup-close").addEventListener("click", function () {
+          document.getElementById("info-popup").style.display = "none";
+        });
+
+        // Mostrar el pop-up al calcular el precio (después de la animación)
+        let precioSuma = 0; // Variable inicial
+        let precioFinal = 0; // Variable inicial
+        let mensajeFinal = document.getElementById("mensajeFinal"); // Mensaje final
+
+        // Asegurarse de que 'ciudad' es un número
+        let precioBase = parseFloat(ciudad); // Si 'ciudad' es una cadena, convertimos a número
+
+        // Ajustar el precio según el número de habitaciones
+        if (rooms === 2) {
+          precioSuma = precioBase * 0.25; // ---- Calcular el 25% del precio base si son 2 habitaciones
+          precioFinal = precioBase + precioSuma; // ---- Suma del 25% 
+        } else if (rooms >= 3) {
+          precioSuma = precioBase * 0.40; // ---- Calcular el 40% del precio base si son 3 o más habitaciones
+          precioFinal = precioBase + precioSuma; // ---- Suma del 40% 
+        } else {
+          precioFinal = precioBase; // --- No hacer nada si es 1 habitación
+        }
+
+        // Animar el precio final
+        animateNumber(document.getElementById('price-estimate'), 50, precioFinal, 1500);
+
+        // Mensaje final con un enlace para abrir el pop-up (sin `onclick` directo)
+        mensajeFinal.innerHTML = '<a href="javascript:void(0);" style="text-decoration: underline; cursor: pointer;">Descubre cómo calculamos cuánto podrías ganar.</a>';
+
+        // Añadir el manejador de eventos al enlace después de actualizar el HTML
+        mensajeFinal.addEventListener("click", function () {
+          showPopup(); // Llamar a showPopup cuando se haga clic en el mensaje
+        });
+
+
+      });
+    });
+    
+  </script>
+</body>
+</html>
